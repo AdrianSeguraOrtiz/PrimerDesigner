@@ -6,7 +6,9 @@ The purpose of this program is to determine an optimal universal primer that ach
 
 Thus, the primer provided by our program will allow reliable laboratory techniques such as detection, sequencing, or PCR amplification to be performed when it is unknown which of the sequences in the file we are dealing with. This is a common scenario in PCR tests when we don't know the strain that the study patient may contain, which is why the existence of a universal probe capable of detecting any of them is necessary.
 
-![](./Pictures/primers.png)
+<div style="width: 60%;">
+    ![](./Pictures/primers.png)
+</div>
 
 ## Constraints
 
