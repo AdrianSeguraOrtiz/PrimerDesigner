@@ -6,7 +6,9 @@ The purpose of this program is to determine an optimal universal primer that ach
 
 Thus, the primer provided by our program will allow reliable laboratory techniques such as detection, sequencing, or PCR amplification to be performed when it is unknown which of the sequences in the file we are dealing with. This is a common scenario in PCR tests when we don't know the strain that the study patient may contain, which is why the existence of a universal probe capable of detecting any of them is necessary.
 
-<img src="./Pictures/primers.png" alt="" width="60%">
+<div align="center">
+    <img src="./Pictures/primers.png" alt="" width="60%">
+</div>
 
 ## Constraints
 
@@ -30,6 +32,8 @@ The first step consists of reading the fasta file provided as an input parameter
 
 After constructing the matrix, we begin the search process by creating two vectors. The first vector will contain a consensus sequence formed by the most frequent nucleotide in each column. The second vector will have the corresponding reliability percentage for each nucleotide in the consensus sequence. In case of a tie, the program is designed to prioritize the letters G and C over A and T since the former have a stronger hybridization force. Of course, in case of a tie, a gap would never be written as it would result in information loss. A simple example would be:
 
+<div align="center">
+
 | SEQ   |  Sequence       |
 |-------|-----------------|
 | SEQ 1 | 5’  ACTA--CAAT 3’ |
@@ -37,6 +41,8 @@ After constructing the matrix, we begin the search process by creating two vecto
 | SEQ 3 | 5’  GCT-AC-AAT 3’ |
 | SEQ 4 | 5’  GCTA--CAAT 3’ |
 | **CONSENSUS** | 5’ GCTA-CCAAT 3’ |
+
+</div>
 
 Once we have obtained the two aforementioned vectors, we proceed to iterate through the reliability vector in search of the region that maximizes the sum of the percentages of its positions and also fulfills all the previously described requirements. This is because even though these conditions are for the primer and not for the template sequence, since the primer will be the reverse complement sequence of the template, fulfilling the conditions in the template means the same fulfillment in the primer.
 
