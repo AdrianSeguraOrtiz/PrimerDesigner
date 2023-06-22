@@ -10,15 +10,17 @@ Thus, the primer provided by our program will allow reliable laboratory techniqu
 
 The design of a good primer must mainly consider four parameters:
 
-- Complementarity: This is the main requirement that a primer must fulfill, which takes precedence over all others. To ensure primer hybridization with the template, it should be as complementary as possible to it. This requirement poses no problem when there is a single known sequence, as you can easily determine the 100% complementary sequence to the template. However, in our case, since we have multiple sequences, we need to find the region that maximizes the number of conserved columns among them to ensure that the complementary sequence we design is truly complementary to all of them.
+- **Complementarity**: This is the main requirement that a primer must fulfill, which takes precedence over all others. To ensure primer hybridization with the template, it should be as complementary as possible to it. This requirement poses no problem when there is a single known sequence, as you can easily determine the 100% complementary sequence to the template. However, in our case, since we have multiple sequences, we need to find the region that maximizes the number of conserved columns among them to ensure that the complementary sequence we design is truly complementary to all of them.
 
-- 3' End Affinity: This is another fundamental requirement closely related to the previous one. This constraint means that the 3' end of our primer must have 100% complementarity with all sequences. If this is not possible, our program cannot provide a solution.
+- **3' End Affinity**: This is another fundamental requirement closely related to the previous one. This constraint means that the 3' end of our primer must have 100% complementarity with all sequences. If this is not possible, our program cannot provide a solution.
 
-- Length: Generally, a primer's length should be between 17 and 23 nucleotides to ensure stability during laboratory manipulation.
+- **Length**: Generally, a primer's length should be between 17 and 23 nucleotides to ensure stability during laboratory manipulation.
 
-- Temperature: In addition to the above, to avoid problems such as primer denaturation or nonspecific amplification, our primer needs to have an associated melting temperature of around 60 degrees Celsius. This temperature is calculated using Wallace's formula:
+- **Temperature**: In addition to the above, to avoid problems such as primer denaturation or nonspecific amplification, our primer needs to have an associated melting temperature of around 60 degrees Celsius. This temperature is calculated using Wallace's formula:
 
-![](./Pictures/image_001.png)
+$$
+\text{Tm = 2(A+T) + 4(G+C)}
+$$
 
 ## Procedure
 
@@ -56,17 +58,71 @@ Given the length of our program, I will present the functions that are most unde
 
 For the first class, we have a single function with the following code:
 
-![](./Pictures/image_002.jpeg)
+```java
+public char[][] leeFichero(String fichero) {
+    List<String> listaRes = new ArrayList<String>();
+    String res_i = "";
+    try {
+        Scanner sc = new Scanner(new File(fichero));
+        sc.nextLine();
+        while (sc.hasNextLine()) {
+            String linea = sc.nextLine();
+            if (linea.startsWith(">")) {
+                listaRes.add(res_i);
+                res_i = "";
+            } else {
+                res_i += linea;
+            }
+        }
+        listaRes.add(res_i);
+    } catch (FileNotFoundException e) {
+        e.printStackTrace();
+    }
+    if (listaRes.size() < 2) {
+        throw new RuntimeException("El fichero introducido no es correcto");
+    }
+    char[][] res = new char[listaRes.size()][listaRes.get(0).length()];
+    for (int i = 0; i < listaRes.size(); i++) {
+        if (i < listaRes.size() - 1 && listaRes.get(i).length() != listaRes.get(i + 1).length()) {
+            throw new RuntimeException("El fichero introducido tiene secuencias de distinta longitud");
+        }
+        for (int j = 0; j < listaRes.get(i).length(); j++) {
+            res[i][j] = listaRes.get(i).charAt(j);
+        }
+    }
+    return res;
+}
+```
 
 As we can see, the function is divided into two parts. In the first part, we take care of sequentially reading the file provided as an input parameter and check that the document contains more than two sequences because otherwise, we cannot proceed with our purpose. In the second part, we convert the initial list of sequences into a character matrix, ensuring that they all have the same length and are aligned. 
 
-![](./Pictures/image_003.png)
-
 The next class is a bit more complex, so I will only show its main method. It uses auxiliary functions whose purpose is described by their own name.
 
-![](./Pictures/image_004.png)
-
-![](./Pictures/image_005.jpeg)
+```java
+public void compute(char[][] sec) {
+    char[] secuenciaConsenso = new char[sec[0].length];
+    double[] fiabilidad = new double[sec[0].length];
+    calculaSecConsensoYFiabilidad(sec, secuenciaConsenso, fiabilidad);
+    int[] posInPosFinTemp = calculaPosMaxFiabilidad(secuenciaConsenso, fiabilidad);
+    int posInicial = posInPosFinTemp[0];
+    int posFinal = posInPosFinTemp[1];
+    int temperatura = posInPosFinTemp[2];
+    String molde = String.valueOf(secuenciaConsenso).substring(posInicial, posFinal);
+    cebador = calculaInvCom(molde);
+    String hibridaciones = calculaHibridaciones(sec, posInicial, posFinal, molde);
+    String StringFiabilidades = "";
+    for (double v : fiabilidad) {
+        StringFiabilidades += " " + v;
+    }
+    resultadoCompleto = "Secuencia consenso: 5'- " + String.valueOf(secuenciaConsenso) + " - 3' \n"
+            + "Fiabilidades: " + StringFiabilidades + "\n"
+            + "Molde Secuencia Consenso: 5'- " + molde + " - 3'" + "  Posición: " + posInicial + " - " + posFinal + "\n"
+            + "Cebador universal: 5'- " + cebador + " -3'"
+            + "   Longitud: " + (posFinal - posInicial) + "   Temperatura: " + temperatura + "ºC" + "\n"
+            + "Hibridaciones del cebador en cada secuencia: \n"
+            + hibridaciones;
+}
+```
 
 In it, we can see that it follows the previously described procedure. We start with the declaration of the consensus sequence and reliability vectors, search for the region of maximum complementarity, determine the template, and finally calculate the reverse complement sequence to obtain the universal primer.
 
@@ -74,7 +130,35 @@ After all that, we construct a string with all the stored information, which wil
 
 To delve into the search algorithm, I will now show the code snippet corresponding to the loops mentioned in the previous section.
 
-![](./Pictures/image_006.jpeg)
+```java
+for (int i = 0; i < fiabilidad.length; i++) {
+    gap = false;
+    hibridacionTresPrimaCebador = true;
+    valorZonaActual = 0;
+    tempActual = 0;
+    j = 0;
+    while (!gap && hibridacionTresPrimaCebador && j < 23 && tempActual < 60 && i < fiabilidad.length - 23) {
+        if (secuenciaConsenso[i + j] == '-') {
+            gap = true;
+        }
+        if (j < 6 && fiabilidad[i + j] < 1) {
+            hibridacionTresPrimaCebador = false;
+        }
+        tempActual += temperaturas.get(secuenciaConsenso[i + j]);
+        valorZonaActual += fiabilidad[i + j];
+        j++;
+        if (!gap && hibridacionTresPrimaCebador && valorZonaActual / j > maxAlcanzado && j > 17 && tempActual > 55) {
+            maxAlcanzado = valorZonaActual / j;
+            res[0] = i;
+            res[1] = i + j;
+            res[2] = tempActual;
+        }
+    }
+}
+if (res[1] == 0) {
+    throw new RuntimeException("No es posible la construcción de un primer universal");
+}
+```
 
 Where the only thing left to mention is that if the minimum necessary conditions for primer design are not met at any point, an exception will be thrown to report this situation.
 
@@ -82,24 +166,54 @@ Where the only thing left to mention is that if the minimum necessary conditions
 
 For this program, given the complexity of the output, I have created two test classes that perform fairly simple checks. Most of the tests are aimed at error detection:
 
-LecturaTest: As the name suggests, it focuses on executing test cases for the "Lectura" class, which is responsible for analyzing the input file. In this case, I have designed three tests consisting of providing a file without headers, another file with a single sequence, and finally, a file where the sequences are not aligned. Therefore, the expected response from the program in all three cases is to throw an exception.
+ - **LecturaTest**: As the name suggests, it focuses on executing test cases for the "Lectura" class, which is responsible for analyzing the input file. In this case, I have designed three tests consisting of providing a file without headers, another file with a single sequence, and finally, a file where the sequences are not aligned. Therefore, the expected response from the program in all three cases is to throw an exception.
 
-![](./Pictures/image_007.jpeg)
+```java
+public class LecturaTest {
+    @Test
+    public void laLecturaDeUnFicheroCon1SecuenciaDaError() {
+        Lectura l = new Lectura();
+        assertThrows(RuntimeException.class, () -> l.leeFichero("Fichero1secuencia.fasta"));
+    }
 
-If we run the tests, we can see that we indeed obtain the expected results:
+    @Test
+    public void laLecturaDeUnFicheroSinCabecerasDaError() {
+        Lectura l = new Lectura();
+        assertThrows(RuntimeException.class, () -> l.leeFichero("FicheroSinCabeceras.fasta"));
+    }
 
-![](./Pictures/image_008.png)
+    @Test
+    public void laLecturaDeUnGFicheroSinAlinearDaError() {
+        Lectura l = new Lectura();
+        assertThrows(RuntimeException.class, () -> l.leeFichero("FicheroSinAlinear.fasta"));
+    }
+}
+```
 
-CebadorTest: In this case, we will test the functionality of the "Cebador" class. For this purpose, I have designed two tests, one intended to fail and the other to clearly succeed.
-The test designed to make the program fail consists of three strategically assembled sequences in a way that the consensus sequence prevents the implemented algorithm from finding a solution.
+- **CebadorTest**: In this case, we will test the functionality of the "Cebador" class. For this purpose, I have designed two tests, one intended to fail and the other to clearly succeed. The test designed to make the program fail consists of three strategically assembled sequences in a way that the consensus sequence prevents the implemented algorithm from finding a solution. On the other hand, the other test consists of two identical sequences filled with gaps except for 20 consecutive nucleotides, whose temperature falls between 55 and 60 degrees, clearly defining the only possible solution.
 
-On the other hand, the other test consists of two identical sequences filled with gaps except for 20 consecutive nucleotides, whose temperature falls between 55 and 60 degrees, clearly defining the only possible solution.
+```java
+public class CebadorTest {
 
-![](./Pictures/image_009.jpeg)
+    @Test
+    public void elCebadorDeUnFicheroConMuchosGapsDaError() {
+        Lectura l = new Lectura();
+        char[][] secuencia = l.leeFichero("FicheroMuchosGaps.fasta");
+        Cebador c = new Cebador();
+        assertThrows(RuntimeException.class, () -> c.compute(secuencia));
+    }
 
-If we execute the class we see how both tests obtain the expected result:
+    @Test
+    public void elCebadorDeUnFicheroConTodoGapsMenos20NucleotidosDaLaComplementariaDeEllosMismos() {
+        Lectura l = new Lectura();
+        char[][] secuencia = l.leeFichero("TodoGapsMenos20NucleótidosAlineados.fasta");
+        Cebador c = new Cebador();
+        c.compute(secuencia);
+        assertEquals("ACGCGTCATATATCTGCGT", c.getCebador());
+    }
+}
+```
 
-![](./Pictures/image_010.png)
 
 ## Examples  
 
@@ -134,7 +248,3 @@ In addition to the FASTA files included in the project, the corresponding PDF do
 Where we can see that for the console version, I have decided to remove the letter coloring since not all consoles support this feature, and in such cases, the result would be displayed illegibly.
 
 Lastly, I would like to mention that after each of these executions, as shown at the end of each screenshot, the result is saved in a .txt file, which I will also provide as attachments to the report.
-
-![](./Pictures/image_018.png)
-
-![](./Pictures/image_019.png)
