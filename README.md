@@ -245,7 +245,9 @@ In addition to the FASTA files included in the project, the corresponding PDF do
 2. Executed by console by using the jar file
 - Example 4: 
 
-![](./Pictures/image_014.png)
+```sh
+java -jar PAB-PrimerUniversal.jar "Ejemplo4.fasta"
+```
 
 ![](./Pictures/image_015.png)
 
